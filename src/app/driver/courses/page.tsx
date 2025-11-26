@@ -32,7 +32,26 @@ export default function DriverCoursesPage() {
       router.push('/');
       return;
     }
-  }, [user, userProfile, authLoading, router]);
+
+    // Vérifier si le chauffeur est entièrement vérifié
+    if (!authLoading && userProfile) {
+      const isDriverVerified = 
+        userProfile.phoneVerified === true &&
+        userProfile.identityStatus === 'verified' &&
+        userProfile.vehicleStatus === 'verified';
+
+      if (!isDriverVerified) {
+        // Rediriger vers la page de vérification si pas vérifié
+        toast({
+          variant: 'destructive',
+          title: 'Vérification requise',
+          description: 'Vous devez compléter la vérification de votre identité et véhicule pour accepter des courses.',
+        });
+        router.push('/verification');
+        return;
+      }
+    }
+  }, [user, userProfile, authLoading, router, toast]);
 
   useEffect(() => {
     if (user && userProfile?.role === 'driver') {

@@ -25,31 +25,73 @@ service cloud.firestore {
     function isManager() {
     	return isSignedIn() && getRole(request.auth.uid) == 'manager';
     }
+    
+    // Vérifications de statut (custom claims simulés via Firestore)
+    function getUserProfile(userId) {
+      return get(/databases/$(database)/documents/userProfiles/$(userId)).data;
+    }
+    
+    function isPhoneVerified(userId) {
+      return getUserProfile(userId).phoneVerified == true;
+    }
+    
+    function isIdentityVerified(userId) {
+      return getUserProfile(userId).identityStatus == 'verified';
+    }
+    
+    function isVehicleVerified(userId) {
+      return getUserProfile(userId).vehicleStatus == 'verified';
+    }
+    
+    function isDriverReady(userId) {
+      let profile = getUserProfile(userId);
+      return profile.role == 'driver' 
+        && profile.identityStatus == 'verified' 
+        && profile.vehicleStatus == 'verified'
+        && profile.phoneVerified == true;
+    }
 
     // Collection: userProfiles
     match /userProfiles/{userId} {
-      // Admins can read/write any profile
-      // Users can read/write their own profile
-      allow read, write: if isSignedIn() && (isOwner(userId) || isAdmin());
-      // Allow creation for any new user
+      // Admins et managers peuvent lire tous les profils
+      allow read: if isSignedIn() && (isOwner(userId) || isAdmin() || isManager());
+      // Admins peuvent écrire n'importe quel profil
+      allow write: if isSignedIn() && (isOwner(userId) || isAdmin());
+      // Permettre création pour nouveaux utilisateurs
       allow create: if isSignedIn();
     }
 
-    // Collection: reservations
+    // Collection: reservations (rides)
     match /reservations/{reservationId} {
-      // Admins and managers can read all reservations
-      // Users can read their own reservations
-      allow read: if isSignedIn() && (isAdmin() || isManager() || resource.data.userId == request.auth.uid);
-      // Users can create their own reservations
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      // Users can update their own reservations (e.g., to cancel)
-      // Admins, managers, and assigned drivers can update reservations
+      // Admins et managers peuvent lire toutes les réservations
+      // Clients peuvent lire leurs propres réservations
+      // Drivers peuvent lire les réservations qui leur sont assignées
+      allow read: if isSignedIn() && (
+        isAdmin() || 
+        isManager() || 
+        resource.data.userId == request.auth.uid ||
+        resource.data.assignedDriverId == request.auth.uid
+      );
+      
+      // Création de réservation: client vérifié (téléphone + identité)
+      allow create: if isSignedIn() 
+        && request.resource.data.userId == request.auth.uid
+        && isPhoneVerified(request.auth.uid)
+        && isIdentityVerified(request.auth.uid);
+      
+      // Mise à jour:
+      // - Client peut annuler sa propre réservation
+      // - Manager peut assigner un chauffeur
+      // - Driver vérifié peut accepter/refuser/démarrer/terminer
+      // - Admin peut tout faire
       allow update: if isSignedIn() && (
-                    isOwner(resource.data.userId) || 
-                    isAdmin() || 
-                    isManager() ||
-                    (resource.data.assignedDriverId != null && isOwner(resource.data.assignedDriverId))
-                  );
+        isAdmin() ||
+        isManager() ||
+        (isOwner(resource.data.userId) && request.resource.data.status == 'cancelled') ||
+        (resource.data.assignedDriverId != null 
+          && isOwner(resource.data.assignedDriverId) 
+          && isDriverReady(request.auth.uid))
+      );
     }
     
     // Collection: drivers
@@ -87,6 +129,23 @@ service cloud.firestore {
       // Users can update their own notifications (mark as read)
       allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
       // Only admins can delete notifications
+      allow delete: if isAdmin();
+    }
+    
+    // Collection: verifications
+    match /verifications/{verificationId} {
+      // Managers et admins peuvent lire toutes les vérifications
+      // Users peuvent lire leurs propres vérifications
+      allow read: if isSignedIn() && (
+        isAdmin() || 
+        isManager() || 
+        resource.data.userId == request.auth.uid
+      );
+      // Users peuvent créer des demandes de vérification
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      // Seuls managers et admins peuvent modifier (approuver/rejeter)
+      allow update: if isSignedIn() && (isAdmin() || isManager());
+      // Seuls admins peuvent supprimer
       allow delete: if isAdmin();
     }
   }

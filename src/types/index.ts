@@ -68,10 +68,13 @@ export interface Reservation {
   desiredPickupTime?: Timestamp | Date | null; // Date et heure souhaitées pour la prise en charge
   assignedDriverId?: string | null;
   driverDetails?: DriverDetails | null;
-  userId?: string | null;
+  userId?: string | null; // Client ID
+  managerId?: string | null; // Manager ID qui a assigné
   createdAt?: Timestamp | Date | null;
   updatedAt?: Timestamp | Date | null;
   routeCoordinates?: { lat: number; lng: number }[] | null;
+  distanceKm?: number | null; // Distance en kilomètres
+  clientPin4?: string | null; // PIN 4 chiffres pour démarrage course
   rating?: number | null; // Note de 1 à 5 (client rating driver)
   comment?: string | null; // Commentaire du client (about driver)
   clientRatingByDriver?: number | null; // Note de 1 à 5 (driver rating client)
@@ -97,6 +100,38 @@ export type UserRole =
   | "rejected_driver"
   | "rejected_manager";
 
+export type IdentityStatus = 'none' | 'pending' | 'verified' | 'rejected';
+export type VehicleStatus = 'none' | 'pending' | 'verified' | 'rejected';
+
+export interface UserDocuments {
+  idFront?: string | null; // URL Storage pour pièce d'identité recto
+  idBack?: string | null; // URL Storage pour pièce d'identité verso
+  selfie?: string | null; // URL selfie pour reconnaissance faciale
+  registrationDoc?: string | null; // Carte grise (drivers only)
+  insuranceDoc?: string | null; // Assurance (drivers only)
+  driverLicense?: string | null; // Permis de conduire (drivers only)
+  vtcLicense?: string | null; // Licence VTC (drivers only)
+  [key: string]: string | null | undefined; // Autres documents
+}
+
+export interface DriverProfileData {
+  make?: string; // Marque du véhicule
+  model?: string; // Modèle du véhicule
+  color?: string; // Couleur du véhicule
+  plate?: string; // Plaque d'immatriculation
+  year?: number; // Année du véhicule
+  capacity?: number; // Capacité passagers
+  registrationDocUrl?: string | null; // URL carte grise
+  insuranceUrl?: string | null; // URL assurance
+  vtcLicenseUrl?: string | null; // URL licence VTC
+}
+
+export interface ManagerProfileData {
+  companyName?: string | null; // Nom de la compagnie
+  address?: string | null; // Adresse
+  zone?: string | null; // Zone de gestion
+}
+
 export interface UserProfile {
   id: string; // Correspond à l'UID Firebase Auth
   email: string | null;
@@ -106,6 +141,7 @@ export interface UserProfile {
   photoURL?: string | null;
   createdAt: Timestamp | Date;
   updatedAt?: Timestamp | Date;
+  lastSeen?: Timestamp | Date | null;
   rejectionReason?: string | null;
   rejectedAt?: Timestamp | Date | null;
   dateOfBirth?: Date | null;
@@ -113,6 +149,21 @@ export interface UserProfile {
   disabledAt?: Timestamp | Date | null; // Timestamp when account was disabled
   phoneNumber?: string;
   country?: 'France' | 'Senegal';
+  
+  // Champs de vérification
+  emailVerified?: boolean;
+  phoneVerified?: boolean;
+  identityStatus?: IdentityStatus; // Statut de vérification d'identité
+  vehicleStatus?: VehicleStatus; // Statut de vérification véhicule (drivers only)
+  
+  // Documents
+  documents?: UserDocuments;
+  
+  // Profils spécifiques
+  driverProfile?: DriverProfileData | null;
+  managerProfile?: ManagerProfileData | null;
+  
+  // Legacy fields (à migrer progressivement)
   carDetails?: {
     make?: string;
     model?: string;

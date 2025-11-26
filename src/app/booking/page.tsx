@@ -88,6 +88,10 @@ function BookingForm() {
     }
   }, [user, userProfile, authLoading, router]);
 
+  // Vérifier si l'utilisateur est vérifié (téléphone + identité)
+  const isUserVerified = userProfile?.phoneVerified === true && userProfile?.identityStatus === 'verified';
+  const canCreateReservation = user && userProfile && isUserVerified;
+
   React.useEffect(() => {
     // Le calcul de distance est maintenant géré par le composant RouteMap
     if (estimatedDistance > 0) {
@@ -125,6 +129,17 @@ function BookingForm() {
         title: 'Erreur',
         description: 'Vous devez être connecté pour réserver.',
       });
+      return;
+    }
+
+    // Vérifier que l'utilisateur est vérifié (téléphone + identité)
+    if (!canCreateReservation) {
+      toast({
+        variant: 'destructive',
+        title: 'Vérification requise',
+        description: 'Vous devez vérifier votre téléphone et votre identité avant de réserver.',
+      });
+      router.push('/verification');
       return;
     }
 
@@ -213,6 +228,36 @@ function BookingForm() {
       </div>
       
       <main className="flex-1 container mx-auto px-4 py-8 max-w-4xl">
+        {/* Alerte de vérification */}
+        {!canCreateReservation && (
+          <Card className="mb-6 border-yellow-500 bg-yellow-50 dark:bg-yellow-950">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-3">
+                <div className="text-yellow-600 dark:text-yellow-400">
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-yellow-800 dark:text-yellow-200">
+                    Vérification requise
+                  </h3>
+                  <p className="mt-1 text-sm text-yellow-700 dark:text-yellow-300">
+                    Pour réserver un trajet, vous devez vérifier votre téléphone et votre identité.
+                  </p>
+                  <Button
+                    onClick={() => router.push('/verification')}
+                    variant="outline"
+                    className="mt-3 border-yellow-600 text-yellow-600 hover:bg-yellow-100 dark:border-yellow-400 dark:text-yellow-400 dark:hover:bg-yellow-900"
+                  >
+                    Compléter la vérification
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <Card>
           <CardHeader>
             <CardTitle className="text-3xl flex items-center gap-2">

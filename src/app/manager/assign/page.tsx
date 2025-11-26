@@ -31,11 +31,28 @@ export default function AssignDriverPage() {
       return;
     }
 
-    if (!authLoading && userProfile?.role !== 'manager' && userProfile?.role !== 'admin') {
+    if (!authLoading && userProfile?.role !== 'manager' && userProfile?.role !== 'admin' && userProfile?.role !== 'sub_admin') {
       router.push('/');
       return;
     }
-  }, [user, userProfile, authLoading, router]);
+
+    // Vérifier si le manager est vérifié
+    if (!authLoading && userProfile && userProfile.role === 'manager') {
+      const isManagerVerified = 
+        userProfile.phoneVerified === true &&
+        userProfile.identityStatus === 'verified';
+
+      if (!isManagerVerified) {
+        toast({
+          variant: 'destructive',
+          title: 'Vérification requise',
+          description: 'Vous devez compléter la vérification de votre identité pour accéder à cette fonctionnalité.',
+        });
+        router.push('/verification');
+        return;
+      }
+    }
+  }, [user, userProfile, authLoading, router, toast]);
 
   useEffect(() => {
     if (user && userProfile) {
