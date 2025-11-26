@@ -78,8 +78,10 @@ export default function Header() {
   return (
     <header className="flex items-center justify-between pb-3 mb-3 sm:pb-4 sm:mb-4 md:pb-6 md:mb-6 border-b">
       <Link href={homeHref} className="flex items-center space-x-2 group">
-        <Navigation className="h-7 w-7 sm:h-8 sm:w-8 text-primary group-hover:text-primary/80 transition-colors" /> 
-        <h1 className="text-2xl sm:text-3xl font-headline font-semibold text-primary group-hover:text-primary/80 transition-colors">JAPANDAL</h1>
+        <Navigation className="h-7 w-7 sm:h-8 sm:w-8 text-primary group-hover:text-primary/80 transition-colors" />
+        <h1 className="text-2xl sm:text-3xl font-headline font-semibold text-primary group-hover:text-primary/80 transition-colors">
+          JAPANDAL
+        </h1>
       </Link>
 
       <nav className="flex items-center space-x-1 sm:space-x-2">
