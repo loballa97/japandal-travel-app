@@ -1,0 +1,77 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+  
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    function getRole(userId) {
+    	return get(/databases/$(database)/documents/userProfiles/$(userId)).data.role;
+    }
+    
+    function isAdmin() {
+    	let userRole = getRole(request.auth.uid);
+    	return isSignedIn() && (userRole == 'admin' || userRole == 'sub_admin');
+    }
+    
+    function isManager() {
+    	return isSignedIn() && getRole(request.auth.uid) == 'manager';
+    }
+
+    // Collection: userProfiles
+    match /userProfiles/{userId} {
+      // Admins can read/write any profile
+      // Users can read/write their own profile
+      allow read, write: if isSignedIn() && (isOwner(userId) || isAdmin());
+      // Allow creation for any new user
+      allow create: if isSignedIn();
+    }
+
+    // Collection: reservations
+    match /reservations/{reservationId} {
+      // Admins and managers can read all reservations
+      // Users can read their own reservations
+      allow read: if isSignedIn() && (isAdmin() || isManager() || resource.data.userId == request.auth.uid);
+      // Users can create their own reservations
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      // Users can update their own reservations (e.g., to cancel)
+      // Admins, managers, and assigned drivers can update reservations
+      allow update: if isSignedIn() && (
+                    isOwner(resource.data.userId) || 
+                    isAdmin() || 
+                    isManager() ||
+                    (resource.data.assignedDriverId != null && isOwner(resource.data.assignedDriverId))
+                  );
+    }
+    
+    // Collection: drivers
+    match /drivers/{driverId} {
+    	// Allow read for authenticated users (e.g., for map view)
+      allow read: if isSignedIn();
+      // Only the driver or an admin can update their details
+      allow write: if isSignedIn() && (isOwner(driverId) || isAdmin());
+    }
+    
+    // Collection: driverTipsAndAnnouncements
+    match /driverTipsAndAnnouncements/{tipId} {
+    	// Allow read for authenticated users
+    	allow read: if isSignedIn();
+      // Only admins can create/update/delete announcements
+      allow write: if isAdmin();
+    }
+    
+    // Collection: adminActionLogs
+    match /adminActionLogs/{logId} {
+    	// Only admins can read/write logs
+    	allow read, write: if isAdmin();
+    }
+  }
+}

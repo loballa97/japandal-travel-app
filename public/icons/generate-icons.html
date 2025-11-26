@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generate PWA Icons</title>
+</head>
+<body>
+    <h1>Generating PWA Icons...</h1>
+    <p>Open browser console to see progress</p>
+    <script>
+        // Generate simple placeholder icons
+        const sizes = [192, 512];
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        sizes.forEach(size => {
+            canvas.width = size;
+            canvas.height = size;
+            
+            // Background color (JAPANDAL teal)
+            ctx.fillStyle = '#4ECDC4';
+            ctx.fillRect(0, 0, size, size);
+            
+            // White circle in center
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(size/2, size/2, size/3, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Download
+            const link = document.createElement('a');
+            link.href = canvas.toDataURL('image/png');
+            link.download = `icon-${size}x${size}.png`;
+            link.click();
+            console.log(`Generated icon-${size}x${size}.png`);
+        });
+        
+        alert('Icons generated! Copy them to public/icons/');
+    </script>
+</body>
+</html>
