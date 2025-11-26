@@ -21,6 +21,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase'; 
 import type { UserProfile, UserRole } from '@/types';
 import { useTheme } from "next-themes";
+import { NotificationBell } from './NotificationBell';
 
 export default function Header() {
   const { user, loading, logout } = useAuth();
@@ -84,11 +85,11 @@ export default function Header() {
       <nav className="flex items-center space-x-1 sm:space-x-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-10 sm:w-10">
+            <button className="inline-flex items-center justify-center h-9 w-9 sm:h-10 sm:w-10 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50">
               <Sun className="h-[1.1rem] w-[1.1rem] sm:h-[1.2rem] sm:w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
               <Moon className="absolute h-[1.1rem] w-[1.1rem] sm:h-[1.2rem] sm:w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
               <span className="sr-only">Changer de thème</span>
-            </Button>
+            </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => setTheme("light")}>
@@ -217,22 +218,23 @@ export default function Header() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          
+          {/* Cloche de notifications */}
+          <NotificationBell />
         ) : showAuthButtons ? (
           <>
-            <Button variant="ghost" asChild size="sm">
-              <Link href="/login">
-                <LogIn className="mr-1 h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Connexion</span>
-                 <span className="sm:hidden">Login</span>
-              </Link>
-            </Button>
-            <Button asChild size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground">
-              <Link href="/signup">
-                <UserPlus className="mr-1 h-4 w-4 sm:mr-2" />
-                 <span className="hidden sm:inline">Inscription</span>
-                 <span className="sm:hidden">S'inscrire</span>
-              </Link>
-            </Button>
+            <Link href="/login">
+              <Button variant="ghost" size="sm" className="flex items-center gap-1">
+                <LogIn className="h-4 w-4" />
+                <span>Connexion</span>
+              </Button>
+            </Link>
+            <Link href="/signup">
+              <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground flex items-center gap-1">
+                <UserPlus className="h-4 w-4" />
+                <span>Inscription</span>
+              </Button>
+            </Link>
           </>
         ) : null }
       </nav>

@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useStripe } from '@stripe/react-stripe-js';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Loader2, CheckCircle2, AlertTriangle, XCircle, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { httpsCallable } from 'firebase/functions';
@@ -12,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 
 const updateReservationStatus = httpsCallable(functions, 'updateReservationStatus'); // Supposons que vous créerez cette fonction backend
 
-export default function PaymentStatusPage() {
+function PaymentStatusContent() {
   const stripe = useStripe();
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<'loading' | 'succeeded' | 'processing' | 'requires_payment_method' | 'canceled' | 'error'>('loading');
@@ -22,6 +24,17 @@ export default function PaymentStatusPage() {
   const { toast } = useToast();
 
   useEffect(() => {
+    // Vérifier d'abord si c'est une réservation directe (sans Stripe)
+    const directStatus = searchParams.get('status');
+    const directReservationId = searchParams.get('reservation_id');
+
+    if (directStatus === 'success' && directReservationId) {
+      setStatus('succeeded');
+      setReservationId(directReservationId);
+      setMessage('Votre réservation a été créée avec succès ! Un chauffeur vous sera assigné prochainement.');
+      return;
+    }
+
     if (!stripe) {
       return;
     }
@@ -68,7 +81,7 @@ export default function PaymentStatusPage() {
       setMessage('Erreur lors de la vérification du statut du paiement.');
       toast({ variant: "destructive", title: "Erreur de paiement", description: "Impossible de vérifier le statut de votre paiement." });
     });
-  }, [stripe, searchParams, toast]);
+  }, [stripe, searchParams, toast, setStatus, setReservationId, setMessage]);
 
   // Effectuer la mise à jour de la réservation côté backend si le paiement a réussi et n'a pas déjà été tenté
   useEffect(() => {
@@ -148,9 +161,44 @@ export default function PaymentStatusPage() {
                 Votre paiement a été annulé. Vous pouvez essayer de réserver à nouveau.
              </p>
           )}
-          {/* Vous pourriez ajouter ici un bouton pour retourner à la page d'accueil ou aux réservations */}
+          
+          {/* Boutons d'action */}
+          <div className="flex flex-col gap-2 pt-4">
+            {status === 'succeeded' && (
+              <>
+                <Button asChild className="w-full">
+                  <Link href="/my-reservations">Voir mes réservations</Link>
+                </Button>
+                <Button asChild variant="outline" className="w-full">
+                  <Link href="/">Retour à l'accueil</Link>
+                </Button>
+              </>
+            )}
+            {(status === 'error' || status === 'canceled' || status === 'requires_payment_method') && (
+              <>
+                <Button asChild className="w-full">
+                  <Link href="/booking">Réessayer</Link>
+                </Button>
+                <Button asChild variant="outline" className="w-full">
+                  <Link href="/">Retour à l'accueil</Link>
+                </Button>
+              </>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function PaymentStatusPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    }>
+      <PaymentStatusContent />
+    </Suspense>
   );
 }

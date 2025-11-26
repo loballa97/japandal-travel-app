@@ -27,13 +27,14 @@ export interface Route {
 }
 
 export type ReservationStatus =
-  | 'Pending'             // Client a fait une demande
-  | 'Assigned'            // Manager a assigné un chauffeur
-  | 'DriverEnRouteToPickup'// Chauffeur a commencé le trajet vers le client
-  | 'DriverAtPickup'      // Chauffeur est arrivé au lieu de prise en charge
-  | 'PassengerOnBoard'    // Client est dans le véhicule
-  | 'Completed'           // Trajet terminé
-  | 'Cancelled';          // Trajet annulé (par client, manager ou chauffeur)
+  | 'pending_assignment'     // Étape 5: Réservation créée, en attente d'attribution par le gérant
+  | 'driver_assigned'        // Étape 7: Gérant a attribué un chauffeur
+  | 'driver_accepted'        // Étape 8: Chauffeur a accepté la course
+  | 'driver_refused'         // Étape 8: Chauffeur a refusé (retourne au gérant)
+  | 'in_progress'            // Étape 9: Chauffeur a démarré la course
+  | 'completed'              // Étape 10: Course terminée
+  | 'cancelled'              // Course annulée (par client, manager ou admin)
+  | 'awaiting_review';       // Étape 11: En attente d'avis client
 
 export interface DriverDetails {
   name?: string; // Nom du chauffeur

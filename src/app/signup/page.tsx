@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation'; 
 import { useForm, type SubmitHandler } from 'react-hook-form';
@@ -87,7 +87,7 @@ const signupSchema = z.object({
 
 type SignupFormData = z.infer<typeof signupSchema>;
 
-export default function SignupPage() {
+function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams(); 
   const { toast } = useToast();
@@ -159,8 +159,8 @@ export default function SignupPage() {
           email: firebaseUser.email,
           displayName: data.displayName || firebaseUser.displayName || null,
           role: finalRole,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
+          createdAt: serverTimestamp() as any,
+          updatedAt: serverTimestamp() as any,
           phoneNumber: data.phoneNumber, // Save the phone number
           country: data.country, // Save the selected country
           dateOfBirth: data.dateOfBirth,
@@ -184,7 +184,7 @@ export default function SignupPage() {
             name: data.displayName || firebaseUser.displayName || firebaseUser.email || 'Chauffeur Anonyme',
             details: driverDetails,
             isOnline: true, // Default to online
-            updatedAt: serverTimestamp(),
+            updatedAt: serverTimestamp() as any,
           };
           await setDoc(driverDocRef, newDriverData);
         }
@@ -335,20 +335,18 @@ export default function SignupPage() {
                         <FormLabel>Date de Naissance</FormLabel>
                         <Popover>
                           <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                variant={"outline"}
-                                className={cn(
-                                  "w-full pl-3 text-left font-normal",
-                                  !field.value && "text-muted-foreground",
- form.formState.errors.dateOfBirth ? "border-destructive" : ""
-                                )}
-                                disabled={isSubmitting}
-                              >
-                                {field.value ? format(field.value, "PPP", { locale: fr }) : <span>Sélectionnez une date</span>}
-                                <CalendarDays className="ml-auto h-4 w-4 opacity-50" />
-                              </Button>
-                            </FormControl>
+                            <Button
+                              variant={"outline"}
+                              className={cn(
+                                "w-full pl-3 text-left font-normal",
+                                !field.value && "text-muted-foreground",
+                                form.formState.errors.dateOfBirth ? "border-destructive" : ""
+                              )}
+                              disabled={isSubmitting}
+                            >
+                              {field.value ? format(field.value, "PPP", { locale: fr }) : <span>Sélectionnez une date</span>}
+                              <CalendarDays className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
                           </PopoverTrigger>
                           <PopoverContent className="w-auto p-0" align="start">
                             <Calendar 
@@ -531,5 +529,18 @@ export default function SignupPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col min-h-screen bg-background text-foreground items-center justify-center">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="mt-4 text-muted-foreground">Chargement...</p>
+      </div>
+    }>
+      <SignupForm />
+    </Suspense>
   );
 }

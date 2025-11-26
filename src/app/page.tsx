@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 
 export default function HomePage() {
-  const { user, loading } = useAuth();
+  const { user, userProfile, loading } = useAuth();
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
@@ -38,14 +38,55 @@ export default function HomePage() {
                 <p>Chargement...</p>
               </div>
             ) : user ? (
-              <div>
+              <div className="space-y-4">
                 <p className="mb-4">Bonjour, {user.displayName || user.email}!</p>
-                <Button asChild>
-                  <Link href="/profile">Voir mon profil</Link>
-                </Button>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  {/* Bouton réservation uniquement pour les clients */}
+                  {userProfile?.role === 'customer' && (
+                    <Link href="/booking">
+                      <Button size="lg" className="bg-primary hover:bg-primary/90">
+                        Réserver un trajet
+                      </Button>
+                    </Link>
+                  )}
+                  {/* Bouton dashboard pour chauffeurs, managers et admins */}
+                  {userProfile?.role === 'driver' && (
+                    <Link href="/driver">
+                      <Button size="lg" className="bg-primary hover:bg-primary/90">
+                        Mon tableau de bord
+                      </Button>
+                    </Link>
+                  )}
+                  {userProfile?.role === 'manager' && (
+                    <Link href="/manager">
+                      <Button size="lg" className="bg-primary hover:bg-primary/90">
+                        Gestion
+                      </Button>
+                    </Link>
+                  )}
+                  {(userProfile?.role === 'admin' || userProfile?.role === 'sub-admin') && (
+                    <Link href="/admin">
+                      <Button size="lg" className="bg-primary hover:bg-primary/90">
+                        Administration
+                      </Button>
+                    </Link>
+                  )}
+                  <Link href="/profile">
+                    <Button variant="outline" size="lg">
+                      Voir mon profil
+                    </Button>
+                  </Link>
+                </div>
               </div>
             ) : (
-              <p>Connectez-vous pour commencer.</p>
+              <div className="space-y-4">
+                <p>Réservez facilement vos trajets aéroport ↔ domicile</p>
+                <Link href="/signup">
+                  <Button size="lg" className="bg-primary hover:bg-primary/90">
+                    Commencer maintenant
+                  </Button>
+                </Link>
+              </div>
             )}
           </div>
         </div>

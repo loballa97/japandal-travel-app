@@ -1,6 +1,7 @@
 
 "use client";
 import * as React from 'react';
+import { Suspense } from 'react';
 import Header from '@/components/layout/Header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -49,7 +50,7 @@ const _renderDynamicAnnouncementIcon = (iconName?: string, className?: string) =
 
 type Section = 'overview' | 'approvals' | 'users' | 'announcements' | 'logs' | 'finance' | 'profile';
 
-export default function AdminDashboardPage() {
+function AdminDashboardContent() {
   const { user: currentUser, loading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -343,5 +344,17 @@ export default function AdminDashboardPage() {
 
       </main>
     </div>
+  );
+}
+
+export default function AdminDashboardPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    }>
+      <AdminDashboardContent />
+    </Suspense>
   );
 }

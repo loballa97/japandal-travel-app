@@ -73,5 +73,21 @@ service cloud.firestore {
     	// Only admins can read/write logs
     	allow read, write: if isAdmin();
     }
+    
+    // Collection: notifications
+    match /notifications/{notificationId} {
+      // Users can only read their own notifications
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      // Only admins, managers, and the system can create notifications
+      allow create: if isSignedIn() && (
+        isAdmin() || 
+        isManager() || 
+        request.resource.data.userId == request.auth.uid
+      );
+      // Users can update their own notifications (mark as read)
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
+      // Only admins can delete notifications
+      allow delete: if isAdmin();
+    }
   }
 }
