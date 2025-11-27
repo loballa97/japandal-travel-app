@@ -7,12 +7,11 @@
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
-    "start": "next start -p ${PORT:-3000}",
+    "start": "next start -p 3000",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
     "format": "prettier --write .",
     "test": "jest --passWithNoTests",
-    "prepare": "husky install",
     "deploy:functions": "cd functions && npm run build && cd .. && firebase deploy --only functions",
     "deploy:rules": "firebase deploy --only firestore:rules,storage:rules",
     "deploy:all": "npm run build && firebase deploy"
