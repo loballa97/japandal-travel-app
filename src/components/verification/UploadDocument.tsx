@@ -5,7 +5,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Upload, Check, X } from "lucide-react";
+import { Loader2, Upload, Check } from "lucide-react";
 
 export type DocumentType =
   | "idFront"

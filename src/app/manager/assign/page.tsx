@@ -13,7 +13,7 @@ import { Loader2, MapPin, Clock, Users, Car, DollarSign, CheckCircle2 } from 'lu
 import { collection, query, where, getDocs, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase';
 import { RESERVATION_STATUS_LABELS, RESERVATION_STATUS_COLORS } from '@/lib/reservationUtils';
-import type { Reservation, Driver, ReservationStatus } from '@/types';
+import type { ReservationStatus } from '@/types';
 
 export default function AssignDriverPage() {
   const { user, userProfile, loading: authLoading } = useAuth();

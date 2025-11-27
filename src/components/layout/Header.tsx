@@ -112,6 +112,7 @@ export default function Header() {
         {loading ? (
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         ) : user ? (
+          <>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-9 w-9 sm:h-10 sm:w-10 rounded-full p-0">
@@ -223,6 +224,7 @@ export default function Header() {
           
           {/* Cloche de notifications */}
           <NotificationBell />
+          </>
         ) : showAuthButtons ? (
           <>
             <Link href="/login">

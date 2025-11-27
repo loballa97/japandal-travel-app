@@ -3,7 +3,7 @@
 import type { User } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 import * as React from 'react';
 import { useToast } from '@/hooks/use-toast';
 import type { UserProfile } from '@/types/index';

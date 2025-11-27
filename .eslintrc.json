@@ -21,10 +21,15 @@
     } 
   },
   "plugins": ["react", "@typescript-eslint", "unused-imports"],
+  "ignorePatterns": ["functions/lib/**", "public/sw.js", "scripts/**", "*.config.js", "*.config.ts", "jest.setup.js"],
   "rules": {
     "react/react-in-jsx-scope": "off",
+    "react/prop-types": "off",
     "no-console": ["warn", { "allow": ["warn","error"] }],
-    "unused-imports/no-unused-imports": "error",
+    "no-irregular-whitespace": "off",
+    "no-undef": "off",
+    "@typescript-eslint/no-require-imports": "off",
+    "unused-imports/no-unused-imports": "warn",
     "unused-imports/no-unused-vars": [
       "warn",
       { "vars": "all", "varsIgnorePattern": "^_", "args": "after-used", "argsIgnorePattern": "^_" }

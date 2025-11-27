@@ -16,8 +16,6 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { CalendarIcon, Loader2, MapPin, Plane, Home as HomeIcon, Users, Car, Clock } from 'lucide-react';
-import { doc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { firestore } from '@/lib/firebase';
 import LocationInput from '@/components/booking/LocationInput';
 import RouteMap from '@/components/booking/RouteMap';
 

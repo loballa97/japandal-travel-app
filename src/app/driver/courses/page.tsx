@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, MapPin, Clock, Users, Car, DollarSign, CheckCircle2, XCircle, Play, StopCircle, AlertCircle } from 'lucide-react';
-import { collection, query, where, getDocs, doc, updateDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, doc, updateDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase';
 import { RESERVATION_STATUS_LABELS, RESERVATION_STATUS_COLORS, getAvailableActions } from '@/lib/reservationUtils';
 import type { ReservationStatus } from '@/types';

@@ -1,6 +1,6 @@
 import { Timestamp } from 'firebase/firestore';
 
-import { ChauffeurStatus, IdentityStatus, VehicleStatus } from './index';
+import { ChauffeurStatus } from './index';
 import { Country } from '../lib/utils';
 
 // Interface pour la sous-collection de documents
