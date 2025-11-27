@@ -1,20 +1,21 @@
 {
   "name": "japandal",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
+  "description": "JAPANDAL - Application de réservation de transport intelligente",
+  "author": "JAPANDAL Team",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3000",
     "build": "next build",
     "start": "next start -p ${PORT:-3000}",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
     "format": "prettier --write .",
-    "format:check": "prettier --check .",
     "test": "jest --passWithNoTests",
-    "test:watch": "jest --watch",
     "prepare": "husky install",
-    "zip": "node scripts/zip.js",
-    "generate-icons": "node scripts/generate-icons.js"
+    "deploy:functions": "cd functions && npm run build && cd .. && firebase deploy --only functions",
+    "deploy:rules": "firebase deploy --only firestore:rules,storage:rules",
+    "deploy:all": "npm run build && firebase deploy"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
