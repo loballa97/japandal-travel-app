@@ -11,9 +11,10 @@ import Stripe from "stripe";
 
 admin.initializeApp();
 
-// Initialiser Stripe avec la clé secrète
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
-  apiVersion: "2024-11-20.acacia",
+// Initialiser Stripe avec la clé secrète depuis functions.config() (fallback sur process.env pour dev local)
+const stripeSecretKey = functions.config().stripe?.secret_key || process.env.STRIPE_SECRET_KEY || "";
+const stripe = new Stripe(stripeSecretKey, {
+  apiVersion: "2025-02-24.acacia",
 });
 
 /**
@@ -331,8 +332,8 @@ export const createStripeCheckoutSession = functions.https.onCall(async (data, c
         },
       ],
       mode: "payment",
-      success_url: successUrl || `${process.env.APP_URL || "http://localhost:3000"}/payment-status?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: cancelUrl || `${process.env.APP_URL || "http://localhost:3000"}/booking?canceled=true`,
+      success_url: successUrl || `${functions.config().app?.url || process.env.APP_URL || "http://localhost:3000"}/payment-status?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: cancelUrl || `${functions.config().app?.url || process.env.APP_URL || "http://localhost:3000"}/booking?canceled=true`,
       client_reference_id: context.auth.uid,
       metadata: {
         userId: context.auth.uid,
@@ -372,7 +373,7 @@ export const stripeWebhook = functions.https.onRequest(async (req, res) => {
     event = stripe.webhooks.constructEvent(
       req.rawBody,
       sig,
-      process.env.STRIPE_WEBHOOK_SECRET || ""
+      functions.config().stripe?.webhook_secret || process.env.STRIPE_WEBHOOK_SECRET || ""
     );
   } catch (err: any) {
     console.error("Webhook signature verification failed:", err.message);

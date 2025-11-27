@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  reactStrictMode: true,
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -21,6 +22,14 @@ const nextConfig = {
         pathname: '/**',
       }
     ],
+  },
+  env: {
+    NEXT_PUBLIC_ENV: process.env.NEXT_PUBLIC_ENV || 'development'
+  },
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '2mb'
+    }
   },
   webpack: (
     config,
