@@ -1,102 +1,79 @@
 "use client";
 
 import React, { useEffect, useState, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { useStripe } from '@stripe/react-stripe-js';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, CheckCircle2, AlertTriangle, XCircle, Clock } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { httpsCallable } from 'firebase/functions';
-import { functions } from '@/lib/firebase'; // Assurez-vous que votre instance de Firebase Functions est exportée ici
+import { functions } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 
-const updateReservationStatus = httpsCallable(functions, 'updateReservationStatus'); // Supposons que vous créerez cette fonction backend
+const getStripeSession = httpsCallable(functions, 'getStripeSession');
 
 function PaymentStatusContent() {
-  const stripe = useStripe();
   const searchParams = useSearchParams();
-  const [status, setStatus] = useState<'loading' | 'succeeded' | 'processing' | 'requires_payment_method' | 'canceled' | 'error'>('loading');
+  const router = useRouter();
+  const [status, setStatus] = useState<'loading' | 'succeeded' | 'canceled' | 'error'>('loading');
   const [message, setMessage] = useState<string | null>(null);
-  const [reservationId, setReservationId] = useState<string | null>(null);
-  const [updateAttempted, setUpdateAttempted] = useState(false);
+  const [sessionData, setSessionData] = useState<any>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    // Vérifier d'abord si c'est une réservation directe (sans Stripe)
-    const directStatus = searchParams.get('status');
-    const directReservationId = searchParams.get('reservation_id');
+    const sessionId = searchParams.get('session_id');
+    const canceled = searchParams.get('canceled');
 
-    if (directStatus === 'success' && directReservationId) {
-      setStatus('succeeded');
-      setReservationId(directReservationId);
-      setMessage('Votre réservation a été créée avec succès ! Un chauffeur vous sera assigné prochainement.');
+    // Paiement annulé
+    if (canceled === 'true') {
+      setStatus('canceled');
+      setMessage('Vous avez annulé le processus de paiement.');
       return;
     }
 
-    if (!stripe) {
-      return;
-    }
-
-    const clientSecret = searchParams.get('payment_intent_client_secret');
-
-    if (!clientSecret) {
+    // Pas de session ID
+    if (!sessionId) {
       setStatus('error');
-      setMessage('Client secret de paiement manquant.');
+      setMessage('ID de session manquant.');
       return;
     }
 
-    stripe.retrievePaymentIntent(clientSecret).then(({ paymentIntent }) => {
-      if (!paymentIntent) {
-        setStatus('error');
-        setMessage('Impossible de récupérer l\'intention de paiement.');
-        return;
-      }
+    // Récupérer les détails de la session
+    const fetchSession = async () => {
+      try {
+        const result = await getStripeSession({ sessionId });
+        const data = result.data as any;
+        
+        setSessionData(data);
 
-      setStatus(paymentIntent.status as typeof status);
-      setReservationId(paymentIntent.metadata.reservationId || null);
-
-      switch (paymentIntent.status) {
-        case 'succeeded':
+        if (data.status === 'paid') {
+          setStatus('succeeded');
           setMessage('Votre paiement a réussi ! Votre réservation est confirmée.');
-          // Trigger backend update for reservation status
-          break;
-        case 'processing':
-          setMessage('Votre paiement est en cours de traitement.');
-          break;
-        case 'requires_payment_method':
-          setMessage('Votre paiement n\'a pas abouti, veuillez réessayer.');
-          break;
-        case 'canceled':
-          setMessage('Votre paiement a été annulé.');
-          break;
-        default:
-          setMessage('Statut de paiement inattendu.');
-          break;
-      }
-    }).catch(error => {
-      console.error("Error retrieving payment intent:", error);
-      setStatus('error');
-      setMessage('Erreur lors de la vérification du statut du paiement.');
-      toast({ variant: "destructive", title: "Erreur de paiement", description: "Impossible de vérifier le statut de votre paiement." });
-    });
-  }, [stripe, searchParams, toast, setStatus, setReservationId, setMessage]);
-
-  // Effectuer la mise à jour de la réservation côté backend si le paiement a réussi et n'a pas déjà été tenté
-  useEffect(() => {
-    if (status === 'succeeded' && reservationId && !updateAttempted) {
-      setUpdateAttempted(true); // Marquer la tentative pour éviter les appels multiples
-      updateReservationStatus({ reservationId: reservationId, paymentStatus: status })
-        .then(() => {
-          toast({ title: "Réservation mise à jour", description: "Le statut de votre réservation a été mis à jour avec succès." });
-        })
-        .catch((error) => {
-          console.error("Error updating reservation status:", error);
-          toast({ variant: "destructive", title: "Erreur de mise à jour", description: "Impossible de mettre à jour le statut de votre réservation dans la base de données." });
+          
+          toast({
+            title: "Paiement réussi",
+            description: "Votre réservation est maintenant confirmée.",
+          });
+        } else {
+          setStatus('error');
+          setMessage('Le paiement n\'a pas été confirmé.');
+        }
+      } catch (error: any) {
+        console.error('Error fetching session:', error);
+        setStatus('error');
+        setMessage(error.message || 'Impossible de récupérer les informations de paiement.');
+        
+        toast({
+          variant: "destructive",
+          title: "Erreur",
+          description: "Impossible de vérifier le statut du paiement.",
         });
-    }
-  }, [status, reservationId, updateAttempted, toast]);
+      }
+    };
+
+    fetchSession();
+  }, [searchParams, toast]);
 
 
   const getStatusIcon = () => {
@@ -105,12 +82,8 @@ function PaymentStatusContent() {
         return <Loader2 className="h-12 w-12 animate-spin text-primary" />;
       case 'succeeded':
         return <CheckCircle2 className="h-12 w-12 text-green-500" />;
-      case 'processing':
-        return <Clock className="h-12 w-12 text-blue-500" />;
-      case 'requires_payment_method':
-        return <AlertTriangle className="h-12 w-12 text-yellow-500" />;
       case 'canceled':
-        return <XCircle className="h-12 w-12 text-red-500" />;
+        return <XCircle className="h-12 w-12 text-yellow-500" />;
       case 'error':
         return <AlertTriangle className="h-12 w-12 text-destructive" />;
       default:
@@ -122,8 +95,8 @@ function PaymentStatusContent() {
     switch (status) {
       case 'succeeded':
         return 'border-green-500';
-      case 'requires_payment_method':
       case 'canceled':
+        return 'border-yellow-500';
       case 'error':
         return 'border-destructive';
       default:
@@ -141,25 +114,34 @@ function PaymentStatusContent() {
         </CardHeader>
         <CardContent className="space-y-4">
           {message && <p className="text-muted-foreground">{message}</p>}
-          {status === 'succeeded' && reservationId && (
-             <p className="text-sm text-muted-foreground">
-                Votre réservation avec l'ID {reservationId} est maintenant confirmée.
-             </p>
+          
+          {status === 'succeeded' && sessionData && (
+            <div className="space-y-3">
+              <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg">
+                <p className="text-sm text-green-800 dark:text-green-200">
+                  ✓ Votre réservation est maintenant en attente d'attribution à un chauffeur.
+                  Vous recevrez une notification dès qu'un chauffeur sera assigné.
+                </p>
+              </div>
+              
+              <div className="text-sm space-y-1 text-muted-foreground">
+                <p><strong>Montant payé:</strong> {(sessionData.amountTotal / 100).toFixed(2)} {sessionData.currency?.toUpperCase()}</p>
+                {sessionData.customerEmail && <p><strong>Email:</strong> {sessionData.customerEmail}</p>}
+                <p className="text-xs opacity-70">ID de session: {sessionData.id}</p>
+              </div>
+            </div>
           )}
-           {status === 'error' && (
-             <p className="text-sm text-destructive">
-                Veuillez contacter le support si le problème persiste.
-             </p>
+          
+          {status === 'error' && (
+            <p className="text-sm text-destructive">
+              Veuillez contacter le support si le problème persiste.
+            </p>
           )}
-           {status === 'requires_payment_method' && (
-             <p className="text-sm text-muted-foreground">
-                Un problème est survenu lors du traitement de votre carte. Veuillez vérifier vos informations ou utiliser une autre méthode.
-             </p>
-          )}
-           {status === 'canceled' && (
-             <p className="text-sm text-muted-foreground">
-                Votre paiement a été annulé. Vous pouvez essayer de réserver à nouveau.
-             </p>
+          
+          {status === 'canceled' && (
+            <p className="text-sm text-muted-foreground">
+              Votre réservation n'a pas été créée. Vous pouvez retourner à la page de réservation pour réessayer.
+            </p>
           )}
           
           {/* Boutons d'action */}
@@ -174,7 +156,7 @@ function PaymentStatusContent() {
                 </Button>
               </>
             )}
-            {(status === 'error' || status === 'canceled' || status === 'requires_payment_method') && (
+            {(status === 'error' || status === 'canceled') && (
               <>
                 <Button asChild className="w-full">
                   <Link href="/booking">Réessayer</Link>

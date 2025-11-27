@@ -2,13 +2,19 @@
  * Cloud Functions for JAPANDAL
  * 
  * Fonctions pour la gestion de la vérification d'identité,
- * custom claims, notifications FCM, etc.
+ * custom claims, notifications FCM, paiements Stripe, etc.
  */
 
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
+import Stripe from "stripe";
 
 admin.initializeApp();
+
+// Initialiser Stripe avec la clé secrète
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
+  apiVersion: "2024-11-20.acacia",
+});
 
 /**
  * Fonction pour définir les custom claims après validation manuelle
@@ -273,3 +279,233 @@ export const generateRidePin = functions.firestore
       console.error("Error generating PIN:", error);
     }
   });
+
+/**
+ * Créer une session de paiement Stripe Checkout
+ * 
+ * @param {object} reservationData - Données de la réservation
+ * @param {string} userId - UID de l'utilisateur
+ * @returns {string} sessionId - ID de la session Stripe
+ */
+export const createStripeCheckoutSession = functions.https.onCall(async (data, context) => {
+  // Vérifier l'authentification
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "Vous devez être connecté pour créer une session de paiement."
+    );
+  }
+
+  const {
+    reservationData,
+    successUrl,
+    cancelUrl,
+  } = data;
+
+  if (!reservationData || !reservationData.estimatedPrice) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "Les données de réservation et le prix sont requis."
+    );
+  }
+
+  try {
+    // Créer une session Stripe Checkout
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      line_items: [
+        {
+          price_data: {
+            currency: "eur",
+            product_data: {
+              name: `Trajet ${reservationData.tripDirection === "airport-to-home" ? "Aéroport → Domicile" : "Domicile → Aéroport"}`,
+              description: `${reservationData.pickupAddress} → ${reservationData.dropoffAddress}`,
+              metadata: {
+                vehicleType: reservationData.vehicleType,
+                distance: reservationData.estimatedDistance?.toString() || "N/A",
+              },
+            },
+            unit_amount: Math.round(reservationData.estimatedPrice * 100), // Convertir en centimes
+          },
+          quantity: 1,
+        },
+      ],
+      mode: "payment",
+      success_url: successUrl || `${process.env.APP_URL || "http://localhost:3000"}/payment-status?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: cancelUrl || `${process.env.APP_URL || "http://localhost:3000"}/booking?canceled=true`,
+      client_reference_id: context.auth.uid,
+      metadata: {
+        userId: context.auth.uid,
+        reservationData: JSON.stringify(reservationData),
+      },
+    });
+
+    return {
+      sessionId: session.id,
+      url: session.url,
+    };
+  } catch (error: any) {
+    console.error("Error creating Stripe session:", error);
+    throw new functions.https.HttpsError(
+      "internal",
+      "Impossible de créer la session de paiement: " + error.message
+    );
+  }
+});
+
+/**
+ * Webhook Stripe pour traiter les événements de paiement
+ * 
+ * Appelé automatiquement par Stripe lors d'événements (paiement réussi, échoué, etc.)
+ */
+export const stripeWebhook = functions.https.onRequest(async (req, res) => {
+  const sig = req.headers["stripe-signature"] as string;
+
+  if (!sig) {
+    res.status(400).send("Missing stripe-signature header");
+    return;
+  }
+
+  let event: Stripe.Event;
+
+  try {
+    event = stripe.webhooks.constructEvent(
+      req.rawBody,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET || ""
+    );
+  } catch (err: any) {
+    console.error("Webhook signature verification failed:", err.message);
+    res.status(400).send(`Webhook Error: ${err.message}`);
+    return;
+  }
+
+  // Traiter les événements
+  switch (event.type) {
+    case "checkout.session.completed": {
+      const session = event.data.object as Stripe.Checkout.Session;
+      
+      console.log("Payment succeeded for session:", session.id);
+
+      try {
+        // Récupérer les données de réservation depuis les metadata
+        const userId = session.client_reference_id || session.metadata?.userId;
+        const reservationDataString = session.metadata?.reservationData;
+
+        if (!userId || !reservationDataString) {
+          console.error("Missing userId or reservationData in session metadata");
+          break;
+        }
+
+        const reservationData = JSON.parse(reservationDataString);
+
+        // Créer la réservation dans Firestore
+        const reservationRef = await admin.firestore().collection("reservations").add({
+          ...reservationData,
+          userId,
+          status: "pending_assignment",
+          paymentStatus: "paid",
+          stripeSessionId: session.id,
+          stripePaymentIntentId: session.payment_intent,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        console.log("Reservation created:", reservationRef.id);
+
+        // Notifier les managers de la nouvelle réservation
+        const managersSnapshot = await admin.firestore()
+          .collection("userProfiles")
+          .where("role", "in", ["manager", "admin", "sub_admin"])
+          .get();
+
+        const notificationPromises = managersSnapshot.docs.map((managerDoc) => {
+          return admin.firestore().collection("notifications").add({
+            userId: managerDoc.id,
+            type: "new_reservation",
+            title: "Nouvelle réservation",
+            message: `Une nouvelle réservation a été créée par ${reservationData.userEmail || "un client"}.`,
+            reservationId: reservationRef.id,
+            read: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        });
+
+        await Promise.all(notificationPromises);
+
+      } catch (error) {
+        console.error("Error processing checkout.session.completed:", error);
+      }
+      break;
+    }
+
+    case "checkout.session.expired": {
+      const session = event.data.object as Stripe.Checkout.Session;
+      console.log("Payment session expired:", session.id);
+      // Optionnel: notifier l'utilisateur que la session a expiré
+      break;
+    }
+
+    case "payment_intent.payment_failed": {
+      const paymentIntent = event.data.object as Stripe.PaymentIntent;
+      console.log("Payment failed:", paymentIntent.id);
+      // Optionnel: créer une notification d'échec de paiement
+      break;
+    }
+
+    default:
+      console.log(`Unhandled event type: ${event.type}`);
+  }
+
+  res.json({ received: true });
+});
+
+/**
+ * Récupérer les détails d'une session Stripe
+ * 
+ * Utilisé sur la page de confirmation de paiement
+ */
+export const getStripeSession = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "Vous devez être connecté."
+    );
+  }
+
+  const { sessionId } = data;
+
+  if (!sessionId) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "L'ID de session est requis."
+    );
+  }
+
+  try {
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    
+    // Vérifier que l'utilisateur est bien le propriétaire de cette session
+    if (session.client_reference_id !== context.auth.uid && session.metadata?.userId !== context.auth.uid) {
+      throw new functions.https.HttpsError(
+        "permission-denied",
+        "Vous n'avez pas accès à cette session."
+      );
+    }
+
+    return {
+      id: session.id,
+      status: session.payment_status,
+      customerEmail: session.customer_email,
+      amountTotal: session.amount_total,
+      currency: session.currency,
+      metadata: session.metadata,
+    };
+  } catch (error: any) {
+    console.error("Error retrieving Stripe session:", error);
+    throw new functions.https.HttpsError(
+      "internal",
+      "Impossible de récupérer la session: " + error.message
+    );
+  }
+});

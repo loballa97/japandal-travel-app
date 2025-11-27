@@ -155,7 +155,7 @@ function BookingForm() {
     setIsSubmitting(true);
 
     try {
-      // Créer la réservation dans Firestore
+      // Préparer les données de réservation
       const reservationData = {
         userId: user.uid,
         userEmail: user.email,
@@ -171,35 +171,32 @@ function BookingForm() {
         estimatedDistance: Math.round(estimatedDistance * 100) / 100,
         estimatedDuration: Math.round(estimatedDuration),
         estimatedPrice,
-        status: 'pending_assignment', // Étape 5: En attente d'attribution par le gérant
-        paymentStatus: 'paid', // Paiement validé (simulé pour l'instant, à intégrer avec Stripe)
-        createdAt: serverTimestamp(),
       };
 
-      const docRef = await addDoc(collection(firestore, 'reservations'), reservationData);
-
-      // Notifier les gérants de la nouvelle réservation
-      try {
-        const { NotificationService } = await import('@/lib/notificationService');
-        await NotificationService.notifyManagerNewReservation(
-          null, // Notifier tous les managers
-          docRef.id,
-          user.email || 'Client',
-          pickupAddress
-        );
-      } catch (notifError) {
-        console.error('Erreur notification gérant:', notifError);
-        // Ne pas bloquer la réservation si la notification échoue
-      }
-
       toast({
-        title: 'Réservation créée !',
-        description: 'Vous allez être redirigé vers le paiement.',
+        title: 'Redirection vers le paiement...',
+        description: 'Vous allez être redirigé vers la page de paiement sécurisée.',
       });
 
-      // Rediriger vers le paiement Stripe (à implémenter)
-      // Pour l'instant, redirection vers payment-status avec succès simulé
-      router.push(`/payment-status?status=success&reservation_id=${docRef.id}`);
+      // Créer une session Stripe Checkout
+      const { getFunctions, httpsCallable } = await import('firebase/functions');
+      const functions = getFunctions();
+      const createCheckoutSession = httpsCallable(functions, 'createStripeCheckoutSession');
+      
+      const result = await createCheckoutSession({
+        reservationData,
+        successUrl: `${window.location.origin}/payment-status?session_id={CHECKOUT_SESSION_ID}`,
+        cancelUrl: `${window.location.origin}/booking?canceled=true`,
+      });
+
+      const { url } = result.data as { sessionId: string; url: string };
+
+      // Rediriger vers Stripe Checkout
+      if (url) {
+        window.location.href = url;
+      } else {
+        throw new Error('URL de paiement non reçue');
+      }
 
     } catch (error: any) {
       console.error('Erreur lors de la réservation:', error);
